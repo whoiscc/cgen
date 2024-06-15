@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2024-present U.N. Owen <void@some.where>
 #
 # SPDX-License-Identifier: MIT
+from cgen.writer import string
+
 
 class Primitive:
     def __init__(self, name):
@@ -13,6 +15,8 @@ class Primitive:
         self.write(writer)
         writer.space()
         writer.write(identifier)
+
+    # consider override __eq__ by comparing name
 
 UNIT = Primitive("void")
 INT = Primitive("int")
@@ -32,6 +36,12 @@ class Pointer:
         self.write(writer)
         writer.write(identifier)
 
+    def __eq__(self, other):
+        return type(other) is Pointer and self.inner == other.inner
+    
+    def __hash__(self):
+        return hash((self.inner, "*"))
+
 
 class Array:
     def __init__(self, inner, length):
@@ -48,6 +58,12 @@ class Array:
         writer.write(identifier)
         writer.write(f"[{self.length}]")
 
+    def __eq__(self, other):
+        return type(other) is Array and self.inner == other.inner
+    
+    def __hash__(self):
+        return hash((self.inner, "[]"))
+
 
 class Function:
     def __init__(self, name):
@@ -61,12 +77,19 @@ class Function:
         variable = Variable(ty, identifier)
         self.parameters.append(variable)
         return variable
-    
+
     def declare(self, ty, identifier = None):
         identifier = identifier or "x" + str(sum(1 for s in self.body if type(s) is Declare) + 1)
         variable = Variable(ty, identifier)
         self.body.append(Declare(variable))
-        variable
+        return variable
+    
+    def assign(self, place, source):
+        self.body.append(Assign(place, source))
+
+    def ret(self, inner):
+        assert inner.ty == self.return_type
+        self.body.append(Return(inner))
 
     def write(self, writer):
         self.return_type.write(writer)
@@ -101,4 +124,30 @@ class Declare:
 
     def write(self, writer):
         self.variable.write_declaration(writer)
+        writer.write(";")
+
+
+class Assign:
+    def __init__(self, place, source):
+        assert place.ty == source.ty, f"assign {string(place.ty)} with {string(source.ty)}"
+        self.place = place
+        self.source = source
+
+    def write(self, writer):
+        self.place.write(writer)
+        writer.space()
+        writer.write("=")
+        writer.space()
+        self.source.write(writer)
+        writer.write(";")
+
+
+class Return:
+    def __init__(self, inner):
+        self.inner = inner
+
+    def write(self, writer):
+        writer.write("return")
+        writer.space()
+        self.inner.write(writer)
         writer.write(";")

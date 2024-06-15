@@ -1,6 +1,12 @@
 from contextlib import contextmanager
 
 
+def string(item):
+    w = Writer()
+    item.write(w)
+    return w.buf
+
+
 class Writer:
     def __init__(self):
         self.buf = ""
