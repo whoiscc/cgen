@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2024-present U.N. Owen <void@some.where>
 #
 # SPDX-License-Identifier: MIT
+from contextlib import contextmanager
+
 from cgen.writer import string
 
 
@@ -129,7 +131,9 @@ class Function:
         self.name = name
         self.parameters = []
         self.return_type = UNIT
-        self.body = []
+        self.body = Block()
+        self.active_block = self.body
+        self.variable_count = 0
 
     def add_parameter(self, ty, identifier = None):
         identifier = identifier or "arg" + str(len(self.parameters) + 1)
@@ -142,26 +146,37 @@ class Function:
         return FunctionType(self.return_type, [parameter.ty for parameter in self.parameters])
 
     def declare(self, ty, identifier = None):
-        identifier = identifier or "x" + str(sum(1 for s in self.body if type(s) is Declare) + 1)
+        if not identifier:
+            self.variable_count += 1
+            identifier = "x" + str(self.variable_count)
         variable = Variable(ty, identifier)
-        self.body.append(Declare(variable))
+        self.active_block.statements.append(Declare(variable))
         return variable
 
     def assign(self, place, source):
-        self.body.append(Assign(place, source))
+        self.active_block.statements.append(Assign(place, source))
+
+    def run(self, inner):
+        self.active_block.statements.append(Run(inner))
+
+    def if_else(self, condition):
+        statement = IfElse(condition)
+        self.active_block.statements.append(statement)
+        return (select_block(self, statement.positive), select_block(self, statement.negative))
+
 
     def ret(self, inner):
         assert inner.ty == self.return_type
-        self.body.append(Return(inner))
-
-    def run(self, inner):
-        self.body.append(Run(inner))
+        self.active_block.statements.append(Return(inner))
 
     def write_declaration(self, writer):
         self.ty.write_declaration(self.name, writer)
         writer.write(";")
 
     def write(self, writer):
+        writer.write(self.name)
+
+    def write_definition(self, writer):
         self.return_type.write(writer)
         writer.space()
         writer.write(self.name)
@@ -170,10 +185,28 @@ class Function:
             for variable in self.parameters:
                 variable.write_declaration(next(comma_writer))
         writer.space()
+        self.body.write(writer)
+
+
+class Block:
+    def __init__(self):
+        self.statements = []
+
+    def write(self, writer):
         with writer.braces():
-            for statement in self.body:
+            for statement in self.statements:
                 with writer.line():
                     statement.write(writer)
+
+
+@contextmanager
+def select_block(function, block):
+    previous_active_block = function.active_block
+    function.active_block = block
+    try:
+        yield
+    finally:
+        function.active_block = previous_active_block
 
 
 class Variable:
@@ -236,6 +269,25 @@ class Run:
         self.inner.write(writer)
         writer.write(";")
 
+
+class IfElse:
+    def __init__(self, condition):
+        self.condition = condition
+        self.positive = Block()
+        self.negative = Block()
+
+    def write(self, writer):
+        writer.write("if")
+        writer.space()
+        with writer.parentheses():
+            self.condition.write(writer)
+        writer.space()
+        self.positive.write(writer)
+        writer.write("else")
+        writer.space()
+        self.negative.write(writer)
+
+
 class Call:
     def __init__(self, callee, arguments):
         callee_type = callee.ty
@@ -278,6 +330,26 @@ class Index:
             self.position.write(writer)
 
 
+class Op:
+    def __init__(self, op, left, right):
+        # TODO: check left/right types
+        self.op = op
+        self.left = left
+        self.right = right
+
+    @property
+    def ty(self):
+        return INT # TODO
+
+    def write(self, writer):
+        if self.left:
+            self.left.write(writer)
+            writer.space()
+        writer.write(self.op)
+        writer.space()
+        self.right.write(writer)
+
+
 class IncludeSystem:
     def __init__(self, name):
         self.name = name
@@ -296,4 +368,4 @@ def write_items(items, writer):
                 item.write_declaration(writer)
     for item in items:
         if isinstance(item, Function):
-            item.write(writer)
+            item.write_definition(writer)
