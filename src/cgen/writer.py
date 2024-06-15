@@ -29,8 +29,16 @@ class Writer:
     def comma_delimited(self):
         return delimited(self, ", ")
 
-    def lines(self):
-        return lines(self)
+    def line(self):
+        return line(self)
+
+
+@contextmanager
+def line(writer):
+    try:
+        yield writer
+    finally:
+        writer.line_break()
 
 
 @contextmanager
@@ -61,9 +69,3 @@ def delimited(writer, delimiter):
         writer.write(prefix)
         prefix = delimiter
         yield writer
-
-
-def lines(writer):
-    while True:
-        yield writer
-        writer.line_break()
