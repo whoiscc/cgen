@@ -22,6 +22,36 @@ UNIT = Primitive("void")
 INT = Primitive("int")
 CHAR = Primitive("char")
 
+class Int:
+    def __init__(self, value):
+        assert isinstance(value, int)
+        self.value = value
+
+    @property
+    def ty(self):
+        return INT
+
+    def write(self, writer):
+        writer.write(str(self.value))
+
+
+class String:
+    def __init__(self, value):
+        assert isinstance(value, str)
+        self.value = value
+
+    @property
+    def ty(self):
+        return Pointer(CHAR)
+
+    def write(self, writer):
+        writer.write("(char[])")
+        with writer.braces(inline=True):
+            comma_writer = writer.comma_delimited()
+            for c in self.value:
+                next(comma_writer).write(repr(c))
+
+
 class Pointer:
     def __init__(self, inner):
         self.inner = inner
@@ -37,8 +67,8 @@ class Pointer:
         writer.write(identifier)
 
     def __eq__(self, other):
-        return type(other) is Pointer and self.inner == other.inner
-    
+        return isinstance(other, Pointer) and self.inner == other.inner
+
     def __hash__(self):
         return hash((self.inner, "*"))
 
@@ -59,10 +89,39 @@ class Array:
         writer.write(f"[{self.length}]")
 
     def __eq__(self, other):
-        return type(other) is Array and self.inner == other.inner
-    
+        return isinstance(other, Array) and self.inner == other.inner
+
     def __hash__(self):
         return hash((self.inner, "[]"))
+
+
+class FunctionType:
+    def __init__(self, return_type, parameter_types):
+        self.return_type = return_type
+        self.parameter_types = parameter_types
+
+    def write(self, writer):
+        self.return_type.write(writer)
+        writer.space()
+        with writer.parentheses():
+            comma_writer = writer.comma_delimited()
+            for ty in self.parameter_types:
+                ty.write(next(comma_writer))
+
+    def write_declaration(self, identifier, writer):
+        self.return_type.write(writer)
+        writer.space()
+        writer.write(identifier)
+        with writer.parentheses():
+            comma_writer = writer.comma_delimited()
+            for ty in self.parameter_types:
+                ty.write(next(comma_writer))
+
+    def __eq__(self, other):
+        return isinstance(other,  FunctionType) and (self.return_type, self.parameter_types) == (other.return_type, other.parameter_types)
+
+    def __hash__(self):
+        return hash((self.parameter_types, "->", self.return_type))
 
 
 class Function:
@@ -78,18 +137,29 @@ class Function:
         self.parameters.append(variable)
         return variable
 
+    @property
+    def ty(self):
+        return FunctionType(self.return_type, [parameter.ty for parameter in self.parameters])
+
     def declare(self, ty, identifier = None):
         identifier = identifier or "x" + str(sum(1 for s in self.body if type(s) is Declare) + 1)
         variable = Variable(ty, identifier)
         self.body.append(Declare(variable))
         return variable
-    
+
     def assign(self, place, source):
         self.body.append(Assign(place, source))
 
     def ret(self, inner):
         assert inner.ty == self.return_type
         self.body.append(Return(inner))
+
+    def run(self, inner):
+        self.body.append(Run(inner))
+
+    def write_declaration(self, writer):
+        self.ty.write_declaration(self.name, writer)
+        writer.write(";")
 
     def write(self, writer):
         self.return_type.write(writer)
@@ -111,6 +181,10 @@ class Variable:
         self.ty = ty
         self.name = name
 
+    @classmethod
+    def type_unchecked(cls, name):
+        return cls(None, name)
+
     def write_declaration(self, writer):
         self.ty.write_declaration(self.name, writer)
 
@@ -129,7 +203,8 @@ class Declare:
 
 class Assign:
     def __init__(self, place, source):
-        assert place.ty == source.ty, f"assign {string(place.ty)} with {string(source.ty)}"
+        if source.ty:
+            assert place.ty == source.ty, f"assign {string(place.ty)} with {string(source.ty)}"
         self.place = place
         self.source = source
 
@@ -151,3 +226,74 @@ class Return:
         writer.space()
         self.inner.write(writer)
         writer.write(";")
+
+
+class Run:
+    def __init__(self, inner):
+        self.inner = inner
+
+    def write(self, writer):
+        self.inner.write(writer)
+        writer.write(";")
+
+class Call:
+    def __init__(self, callee, arguments):
+        callee_type = callee.ty
+        if callee_type:
+            assert isinstance(callee_type, FunctionType)
+            assert len(arguments) == len(callee_type.parameter_types)
+            for argument, ty in zip(arguments, callee_type.parameter_types):
+                assert argument.ty == ty
+        self.callee = callee
+        self.arguments = arguments
+
+    @property
+    def ty(self):
+        return self.callee.ty.return_type
+
+    def write(self, writer):
+        self.callee.write(writer)
+        with writer.parentheses():
+            comma_writer = writer.comma_delimited()
+            for argument in self.arguments:
+                argument.write(next(comma_writer))
+
+
+class Index:
+    def __init__(self, array, position):
+        array_type = array.ty
+        if array.ty:
+            assert isinstance(array_type, (Array, Pointer))
+            # TODO: assert position type
+        self.array = array
+        self.position = position
+
+    @property
+    def ty(self):
+        return self.array.ty.inner
+
+    def write(self, writer):
+        self.array.write(writer)
+        with writer.brackets():
+            self.position.write(writer)
+
+
+class IncludeSystem:
+    def __init__(self, name):
+        self.name = name
+
+    def write(self, writer):
+        writer.write(f"#include <{self.name}>")
+        writer.line_break()
+
+def write_items(items, writer):
+    for item in items:
+        if isinstance(item, IncludeSystem):
+            item.write(writer)
+    for item in items:
+        if isinstance(item, Function):
+            with writer.line():
+                item.write_declaration(writer)
+    for item in items:
+        if isinstance(item, Function):
+            item.write(writer)

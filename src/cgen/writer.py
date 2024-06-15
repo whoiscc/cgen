@@ -27,10 +27,13 @@ class Writer:
         self.write(" ")
 
     def parentheses(self):
-        return parentheses(self)
+        return wrap(self, "(", ")", inline=True)
 
-    def braces(self):
-        return braces(self)
+    def braces(self, *, inline=False):
+        return wrap(self, "{", "}", inline)
+
+    def brackets(self):
+        return wrap(self, "[", "]", inline=True)
 
     def comma_delimited(self):
         return delimited(self, ", ")
@@ -48,25 +51,19 @@ def line(writer):
 
 
 @contextmanager
-def parentheses(writer):
-    writer.write("(")
-    try:
-        yield writer
-    finally:
-        writer.write(")")
-
-
-@contextmanager
-def braces(writer):
-    writer.write("{")
-    writer.indent_level += 2
-    writer.line_break()
-    try:
-        yield writer
-    finally:
-        writer.indent_level -= 2
-        writer.write("}")
+def wrap(writer, left, right, inline):
+    writer.write(left)
+    if not inline:
+        writer.indent_level += 2
         writer.line_break()
+    try:
+        yield writer
+    finally:
+        if not inline:
+            writer.indent_level -= 2
+        writer.write(right)
+        if not inline:
+            writer.line_break()
 
 
 def delimited(writer, delimiter):
