@@ -6,7 +6,6 @@ def string(item):
     item.write(w)
     return w.buf
 
-
 class Writer:
     def __init__(self):
         self.buf = ""
@@ -41,14 +40,12 @@ class Writer:
     def line(self):
         return line(self)
 
-
 @contextmanager
 def line(writer):
     try:
         yield writer
     finally:
         writer.line_break()
-
 
 @contextmanager
 def wrap(writer, left, right, inline):
@@ -64,7 +61,6 @@ def wrap(writer, left, right, inline):
         writer.write(right)
         if not inline:
             writer.line_break()
-
 
 def delimited(writer, delimiter):
     prefix = ""

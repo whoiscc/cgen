@@ -36,7 +36,6 @@ class Int:
     def write(self, writer):
         writer.write(str(self.value))
 
-
 class String:
     def __init__(self, value):
         assert isinstance(value, str)
@@ -52,7 +51,6 @@ class String:
             comma_writer = writer.comma_delimited()
             for c in self.value:
                 next(comma_writer).write(repr(c))
-
 
 class Pointer:
     def __init__(self, inner):
@@ -74,7 +72,6 @@ class Pointer:
     def __hash__(self):
         return hash((self.inner, "*"))
 
-
 class Array:
     def __init__(self, inner, length):
         self.inner = inner
@@ -95,7 +92,6 @@ class Array:
 
     def __hash__(self):
         return hash((self.inner, "[]"))
-
 
 class FunctionType:
     def __init__(self, return_type, parameter_types):
@@ -124,7 +120,6 @@ class FunctionType:
 
     def __hash__(self):
         return hash((self.parameter_types, "->", self.return_type))
-
 
 class Function:
     def __init__(self, name):
@@ -191,7 +186,6 @@ class Function:
         writer.space()
         self.body.write(writer)
 
-
 class Block:
     def __init__(self):
         self.statements = []
@@ -202,7 +196,6 @@ class Block:
                 with writer.line():
                     statement.write(writer)
 
-
 @contextmanager
 def block_context(function, block):
     previous_active_block = function.active_block
@@ -211,7 +204,6 @@ def block_context(function, block):
         yield
     finally:
         function.active_block = previous_active_block
-
 
 class Variable:
     def __init__(self, ty, name):
@@ -228,7 +220,6 @@ class Variable:
     def write(self, writer):
         writer.write(self.name)
 
-
 class Declare:
     def __init__(self, variable):
         self.variable = variable
@@ -236,7 +227,6 @@ class Declare:
     def write(self, writer):
         self.variable.write_declaration(writer)
         writer.write(";")
-
 
 class Assign:
     def __init__(self, place, source):
@@ -253,7 +243,6 @@ class Assign:
         self.source.write(writer)
         writer.write(";")
 
-
 class Return:
     def __init__(self, inner):
         self.inner = inner
@@ -264,7 +253,6 @@ class Return:
         self.inner.write(writer)
         writer.write(";")
 
-
 class Run:
     def __init__(self, inner):
         self.inner = inner
@@ -272,7 +260,6 @@ class Run:
     def write(self, writer):
         self.inner.write(writer)
         writer.write(";")
-
 
 class IfElse:
     def __init__(self, condition):
@@ -291,7 +278,6 @@ class IfElse:
         writer.space()
         self.negative.write(writer)
 
-
 class While:
     def __init__(self, condition):
         self.condition = condition
@@ -304,7 +290,6 @@ class While:
             self.condition.write(writer)
         writer.space()
         self.body.write(writer)
-
 
 class Call:
     def __init__(self, callee, arguments):
@@ -328,7 +313,6 @@ class Call:
             for argument in self.arguments:
                 argument.write(next(comma_writer))
 
-
 class Index:
     def __init__(self, array, position):
         array_type = array.ty
@@ -346,7 +330,6 @@ class Index:
         self.array.write(writer)
         with writer.brackets():
             self.position.write(writer)
-
 
 class Op:
     def __init__(self, op, left, right):
@@ -368,7 +351,6 @@ class Op:
         writer.space()
         with writer.parentheses():
             self.right.write(writer)
-
 
 class IncludeSystem:
     def __init__(self, name):
