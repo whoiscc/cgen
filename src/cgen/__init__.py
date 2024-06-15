@@ -162,8 +162,12 @@ class Function:
     def if_else(self, condition):
         statement = IfElse(condition)
         self.active_block.statements.append(statement)
-        return (select_block(self, statement.positive), select_block(self, statement.negative))
+        return (block_context(self, statement.positive), block_context(self, statement.negative))
 
+    def loop(self, condition):
+        statement = While(condition)
+        self.active_block.statements.append(statement)
+        return block_context(self, statement.body)
 
     def ret(self, inner):
         assert inner.ty == self.return_type
@@ -200,7 +204,7 @@ class Block:
 
 
 @contextmanager
-def select_block(function, block):
+def block_context(function, block):
     previous_active_block = function.active_block
     function.active_block = block
     try:
@@ -288,6 +292,20 @@ class IfElse:
         self.negative.write(writer)
 
 
+class While:
+    def __init__(self, condition):
+        self.condition = condition
+        self.body = Block()
+
+    def write(self, writer):
+        writer.write("while")
+        writer.space()
+        with writer.parentheses():
+            self.condition.write(writer)
+        writer.space()
+        self.body.write(writer)
+
+
 class Call:
     def __init__(self, callee, arguments):
         callee_type = callee.ty
@@ -343,11 +361,13 @@ class Op:
 
     def write(self, writer):
         if self.left:
-            self.left.write(writer)
+            with writer.parentheses():
+                self.left.write(writer)
             writer.space()
         writer.write(self.op)
         writer.space()
-        self.right.write(writer)
+        with writer.parentheses():
+            self.right.write(writer)
 
 
 class IncludeSystem:

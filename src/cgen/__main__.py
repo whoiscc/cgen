@@ -18,11 +18,19 @@ from cgen.writer import Writer
 fib = Function("fib")
 fib.return_type = INT
 n = fib.add_parameter(INT, "n")
-(pos, neg) = fib.if_else(Op("<=", n, Int(2)))
-with pos:
-    fib.ret(Int(1))
-with neg:
-    fib.ret(Op('+', Call(fib, [Op("-", n, Int(1))]), Call(fib, [Op("-", n, Int(2))])))
+a = fib.declare(INT, 'a')
+b = fib.declare(INT, 'b')
+m = fib.declare(INT, 'm')
+fib.assign(a, Int(1))
+fib.assign(b, Int(1))
+fib.assign(m, Int(2))
+with fib.loop(Op("<", m, n)):
+    t = fib.declare(INT, "t")
+    fib.assign(t, a)
+    fib.assign(a, Op("+", a, b))
+    fib.assign(b, t)
+    fib.assign(m, Op("+", m, Int(1)))
+fib.ret(a)
 
 printf = Variable.type_unchecked("printf")
 atoi = Variable(FunctionType(INT, [Pointer(CHAR)]), "atoi")
