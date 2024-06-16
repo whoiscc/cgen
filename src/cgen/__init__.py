@@ -20,10 +20,12 @@ class Primitive:
 
     # consider override __eq__ by comparing name
 
+
 UNIT = Primitive("void")
 INT = Primitive("int")
 CHAR = Primitive("char")
 USIZE = Primitive("size_t")
+
 
 class Pointer:
     def __init__(self, inner):
@@ -45,6 +47,7 @@ class Pointer:
     def __hash__(self):
         return hash((self.inner, "*"))
 
+
 class Array:
     def __init__(self, inner, length):
         self.inner = inner
@@ -64,6 +67,7 @@ class Array:
 
     def __hash__(self):
         return hash((self.inner, "[]"))
+
 
 class FunctionType:
     def __init__(self, return_type, parameter_types):
@@ -88,10 +92,14 @@ class FunctionType:
                 ty.write(next(comma_writer))
 
     def __eq__(self, other):
-        return isinstance(other,  FunctionType) and (self.return_type, self.parameter_types) == (other.return_type, other.parameter_types)
+        return isinstance(other, FunctionType) and (self.return_type, self.parameter_types) == (
+            other.return_type,
+            other.parameter_types,
+        )
 
     def __hash__(self):
         return hash((self.parameter_types, "->", self.return_type))
+
 
 class Struct:
     def __init__(self, name):
@@ -124,7 +132,7 @@ class Struct:
 
 
 class Int:
-    def __init__(self, value, ty = INT):
+    def __init__(self, value, ty=INT):
         assert isinstance(value, int)
         self.value = value
         assert ty in (INT, USIZE)
@@ -132,6 +140,7 @@ class Int:
 
     def write(self, writer):
         writer.write(str(self.value))
+
 
 class String:
     def __init__(self, value):
@@ -149,6 +158,7 @@ class String:
             for c in self.value:
                 next(comma_writer).write(repr(c))
 
+
 class Null:
     def __init__(self, inner_type):
         self.inner_type = inner_type
@@ -163,6 +173,7 @@ class Null:
         writer.space()
         writer.write("NULL")
 
+
 class Function:
     def __init__(self, name):
         self.name = name
@@ -172,7 +183,7 @@ class Function:
         self.active_block = self.body
         self.variable_count = 0
 
-    def add_parameter(self, ty, identifier = None):
+    def add_parameter(self, ty, identifier=None):
         identifier = identifier or "arg" + str(len(self.parameters) + 1)
         variable = Variable(ty, identifier)
         self.parameters.append(variable)
@@ -182,7 +193,7 @@ class Function:
     def ty(self):
         return FunctionType(self.return_type, [parameter.ty for parameter in self.parameters])
 
-    def declare(self, ty, identifier = None):
+    def declare(self, ty, identifier=None):
         if not identifier:
             self.variable_count += 1
             identifier = "x" + str(self.variable_count)
@@ -225,6 +236,7 @@ class Function:
         writer.space()
         self.body.write(writer)
 
+
 class Block:
     def __init__(self):
         self.statements = []
@@ -237,6 +249,7 @@ class Block:
             for statement in self.statements:
                 statement.write(next(line_writer))
 
+
 @contextmanager
 def block_context(function, block):
     previous_active_block = function.active_block
@@ -245,6 +258,7 @@ def block_context(function, block):
         yield
     finally:
         function.active_block = previous_active_block
+
 
 class Variable:
     def __init__(self, ty, name):
@@ -261,6 +275,7 @@ class Variable:
     def write(self, writer):
         writer.write(self.name)
 
+
 class Declare:
     def __init__(self, variable):
         self.variable = variable
@@ -268,6 +283,7 @@ class Declare:
     def write(self, writer):
         self.variable.write_declaration(writer)
         writer.write(";")
+
 
 class Assign:
     def __init__(self, place, source):
@@ -284,6 +300,7 @@ class Assign:
         self.source.write(writer)
         writer.write(";")
 
+
 class Return:
     def __init__(self, inner):
         self.inner = inner
@@ -294,6 +311,7 @@ class Return:
         self.inner.write(writer)
         writer.write(";")
 
+
 class Run:
     def __init__(self, inner):
         self.inner = inner
@@ -301,6 +319,7 @@ class Run:
     def write(self, writer):
         self.inner.write(writer)
         writer.write(";")
+
 
 class IfElse:
     def __init__(self, condition):
@@ -320,6 +339,7 @@ class IfElse:
         writer.space()
         self.negative.write(writer)
 
+
 class While:
     def __init__(self, condition):
         self.condition = condition
@@ -332,6 +352,7 @@ class While:
             self.condition.write(writer)
         writer.space()
         self.body.write(writer)
+
 
 class Call:
     def __init__(self, callee, arguments):
@@ -355,6 +376,7 @@ class Call:
             for argument in self.arguments:
                 argument.write(next(comma_writer))
 
+
 class Op:
     def __init__(self, op, left, right):
         if op in ["+", "-", "*", "/", "%"]:
@@ -376,7 +398,7 @@ class Op:
             return Pointer(self.right.ty)
         if self.op in ("==", "!=", ">", ">=", "<", "<="):
             return INT
-        return self.left.ty # TODO
+        return self.left.ty  # TODO: complete the cases
 
     def write(self, writer):
         if self.left:
@@ -388,6 +410,7 @@ class Op:
             writer.space()
         with writer.parentheses():
             self.right.write(writer)
+
 
 class GetItem:
     def __init__(self, array, position):
@@ -408,6 +431,7 @@ class GetItem:
         self.array.write(writer)
         with writer.brackets():
             self.position.write(writer)
+
 
 class SetItem:
     def __init__(self, array, position, source):
@@ -433,7 +457,7 @@ class SetItem:
         writer.space()
         self.source.write(writer)
         writer.write(";")
-        
+
 
 class GetAttr:
     def __init__(self, struct, attr):
@@ -459,6 +483,7 @@ class GetAttr:
             writer.write(f"->{self.attr}")
         else:
             writer.write(f".{self.attr}")
+
 
 class SetAttr:
     def __init__(self, struct, attr, source):
@@ -487,6 +512,7 @@ class SetAttr:
         writer.space()
         self.source.write(writer)
         writer.write(";")
+
 
 class Include:
     def __init__(self, name, *, system=True):

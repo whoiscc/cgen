@@ -6,6 +6,7 @@ def string(item):
     item.write(w)
     return w.buf
 
+
 class Writer:
     def __init__(self):
         self.buf = ""
@@ -26,39 +27,39 @@ class Writer:
         self.write(" ")
 
     def parentheses(self):
-        return wrap(self, "(", ")", inline=True)
+        return self.wrap("(", ")", inline=True)
 
     def braces(self, *, inline=False):
-        return wrap(self, "{", "}", inline)
+        return self.wrap("{", "}", inline)
 
     def brackets(self):
-        return wrap(self, "[", "]", inline=True)
+        return self.wrap("[", "]", inline=True)
 
     def comma_delimited(self):
-        return delimited(self, ", ")
+        return self.delimited(", ")
 
     def lines(self):
         while True:
             yield self
             self.line_break()
 
-@contextmanager
-def wrap(writer, left, right, inline):
-    writer.write(left)
-    if not inline:
-        writer.indent_level += 2
-        writer.line_break()
-    try:
-        yield writer
-    finally:
+    @contextmanager
+    def wrap(self, left, right, inline):
+        self.write(left)
         if not inline:
-            writer.indent_level -= 2
-            writer.line_break()
-        writer.write(right)
+            self.indent_level += 2
+            self.line_break()
+        try:
+            yield self
+        finally:
+            if not inline:
+                self.indent_level -= 2
+                self.line_break()
+            self.write(right)
 
-def delimited(writer, delimiter):
-    prefix = ""
-    while True:
-        writer.write(prefix)
-        prefix = delimiter
-        yield writer
+    def delimited(self, delimiter):
+        prefix = ""
+        while True:
+            self.write(prefix)
+            prefix = delimiter
+            yield self

@@ -1,7 +1,8 @@
 from cgen import (
-    UNIT,
     INT,
+    UNIT,
     USIZE,
+    Assign,
     Call,
     Function,
     FunctionType,
@@ -16,7 +17,6 @@ from cgen import (
     SetItem,
     Struct,
     Variable,
-    Assign
 )
 
 
@@ -57,12 +57,14 @@ class Vec:
         # not silently fail the opposite?
         with f.if_else(Op(">", cap, GetAttr(v, "cap")))[0]:
             realloc = Variable(FunctionType(Pointer(self.inner_type), [Pointer(self.inner_type), USIZE]), "realloc")
-            f.add(SetAttr(v, "buf", Call(realloc, [GetAttr(v, "buf"), Op("*", Op.unary("sizeof", self.inner_type), cap)])))
+            f.add(
+                SetAttr(v, "buf", Call(realloc, [GetAttr(v, "buf"), Op("*", Op.unary("sizeof", self.inner_type), cap)]))
+            )
             assert_func = Variable(FunctionType(UNIT, [INT]), "assert")
             f.add(Run(Call(assert_func, [Op("!=", GetAttr(v, "buf"), Null(self.inner_type))])))
             f.add(SetAttr(v, "cap", cap))
         return f
-    
+
     def gen_push(self):
         f = Function("vec_push")
         v = f.add_parameter(Pointer(self.struct), "v")
@@ -88,10 +90,10 @@ class Vec:
         yield self.reserve
         yield self.push
 
+
 def gen_struct(inner_type):
     s = Struct("Vec")
     s.add_field(Pointer(inner_type), "buf")
     s.add_field(USIZE, "len")
     s.add_field(USIZE, "cap")
     return s
-

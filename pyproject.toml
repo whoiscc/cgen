@@ -62,3 +62,4 @@ exclude_lines = [
 
 [tool.ruff.lint.extend-per-file-ignores]
 "*" = ["S101"]
+"__main__.py" = ["T201"]
