@@ -206,10 +206,13 @@ class Function:
         self.return_type = UNIT
         self.body = Block()
         self.active_block = self.body
-        self.variable_count = 0
+        self.identifiers = {}
+        self.labels = {}
 
     def add_parameter(self, ty, identifier=None):
+        assert not self.body.statements, "parameter must be added first"
         identifier = identifier or "arg" + str(len(self.parameters) + 1)
+        assert all(variable.name != identifier for variable in self.parameters)
         variable = Variable(ty, identifier)
         self.parameters.append(variable)
         return variable
@@ -218,19 +221,17 @@ class Function:
     def ty(self):
         return FunctionType(self.return_type, [parameter.ty for parameter in self.parameters])
 
-    def declare(self, ty, identifier=None):
-        if not identifier:
-            self.variable_count += 1
-            identifier = "x" + str(self.variable_count)
+    def declare(self, ty, identifier_hint=None):
+        identifier_hint = identifier_hint or "x"
+        identifier = identifier_hint
+        if identifier in self.identifiers:
+            self.identifiers[identifier] += 1
+            identifier += str(self.identifiers[identifier])
+        else:
+            self.identifiers[identifier] = 1
         variable = Variable(ty, identifier)
         self.active_block.statements.append(Declare(variable))
         return variable
-
-    def add(self, *statement_tokens):
-        statement = parse(tuple(statement_tokens))
-        if not isinstance(statement, (Assign, SetAttr, SetItem)):
-            statement = Run(statement)
-        self.active_block.statements.append(statement)
 
     def if_else(self, *condition_tokens):
         statement = IfElse(parse(tuple(condition_tokens)))
@@ -244,6 +245,24 @@ class Function:
         statement = While(parse(tuple(condition_tokens)))
         self.active_block.statements.append(statement)
         return self.block_context(statement.body)
+
+    def label(self, name_hint=None):
+        name_hint = name_hint or "l"
+        name = name_hint
+        if name in self.labels:
+            self.labels[name] += 1
+            name += str(self.labels[name])
+        else:
+            self.labels[name] = 1
+        label = Label(name)
+        self.active_block.statements.append(label)
+        return label
+
+    def add(self, *statement_tokens):
+        statement = parse(tuple(statement_tokens))
+        if not isinstance(statement, (Assign, SetAttr, SetItem)):
+            statement = Run(statement)
+        self.active_block.statements.append(statement)
 
     @contextmanager
     def block_context(self, block):
@@ -383,6 +402,25 @@ class While:
             self.condition.write(writer)
         writer.space()
         self.body.write(writer)
+
+
+class Label:
+    def __init__(self, name):
+        self.name = name
+
+    def write(self, writer):
+        writer.write(f"{self.name}:")
+
+
+class Goto:
+    def __init__(self, label=None):
+        self.label = label
+
+    def write(self, writer):
+        assert self.label
+        writer.write("goto")
+        writer.space()
+        writer.write(f"{self.label.name};")
 
 
 class Call:

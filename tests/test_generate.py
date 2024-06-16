@@ -1,4 +1,4 @@
-from cgen import SourceCode
+from cgen import I32, Function, SourceCode
 from cgen.gallery import fib
 from cgen.writer import generate
 
@@ -27,3 +27,19 @@ def test_fib():
     s.add(fib())
     g = generate(s)
     assert g == fib_source
+
+
+def test_declare():
+    f = Function("test")
+    x = f.declare(I32)
+    assert x.name == "x"
+    x = f.declare(I32)
+    assert x.name == "x2"
+    x = f.declare(I32)
+    assert x.name == "x3"
+    a = f.declare(I32, "a")
+    assert a.name == "a"
+    a = f.declare(I32, "a")
+    assert a.name == "a2"
+    a = f.declare(I32, "a")
+    assert a.name == "a3"

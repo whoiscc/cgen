@@ -13,6 +13,7 @@ Or <ins>C</ins> with <ins>gen</ins>eric programming, depends on your preference.
 - [Example](#example)
 - [Installation](#installation)
 - [License](#license)
+- [Wish List](#wish-list)
 
 ## Motivation
 
@@ -82,7 +83,7 @@ int main(int argc, char **argv) {
 
 ## Installation
 
-Set up development with hatch
+Set up development environment with Hatch
 
 ```console
 hatch env create
@@ -98,9 +99,13 @@ Compile and run the generated code
 
 ```console
 hatch run python3 -m cgen | cc -x c -
-./a.out
+./a.out 100
 ```
 
 ## License
 
 `cgen` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.
+
+## Wish List
+
+* Code generation for regular expression and benchmark against Python's `re` module.
