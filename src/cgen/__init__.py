@@ -228,7 +228,7 @@ class Function:
     def if_else(self, *condition_tokens):
         statement = IfElse(parse(tuple(condition_tokens)))
         self.active_block.statements.append(statement)
-        return (block_context(self, statement.positive), block_context(self, statement.negative))
+        return (self.block_context(statement.positive), self.block_context(statement.negative))
 
     def when(self, *condition_tokens):
         return self.if_else(*condition_tokens)[0]
@@ -236,7 +236,16 @@ class Function:
     def loop(self, *condition_tokens):
         statement = While(parse(tuple(condition_tokens)))
         self.active_block.statements.append(statement)
-        return block_context(self, statement.body)
+        return self.block_context(statement.body)
+
+    @contextmanager
+    def block_context(self, block):
+        previous_active_block = self.active_block
+        self.active_block = block
+        try:
+            yield
+        finally:
+            self.active_block = previous_active_block
 
     def ret(self, *tokens):
         inner = parse(tuple(tokens))
@@ -273,16 +282,6 @@ class Block:
                 writer.write(";")
             for statement in self.statements:
                 statement.write(next(line_writer))
-
-
-@contextmanager
-def block_context(function, block):
-    previous_active_block = function.active_block
-    function.active_block = block
-    try:
-        yield
-    finally:
-        function.active_block = previous_active_block
 
 
 class Variable:
