@@ -37,15 +37,10 @@ class Writer:
     def comma_delimited(self):
         return delimited(self, ", ")
 
-    def line(self):
-        return line(self)
-
-@contextmanager
-def line(writer):
-    try:
-        yield writer
-    finally:
-        writer.line_break()
+    def lines(self):
+        while True:
+            yield self
+            self.line_break()
 
 @contextmanager
 def wrap(writer, left, right, inline):
@@ -58,6 +53,7 @@ def wrap(writer, left, right, inline):
     finally:
         if not inline:
             writer.indent_level -= 2
+            writer.line_break()
         writer.write(right)
 
 def delimited(writer, delimiter):

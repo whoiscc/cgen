@@ -31,7 +31,7 @@ class Pointer:
 
     def write(self, writer):
         self.inner.write(writer)
-        if type(self.inner) is not Pointer:
+        if not isinstance(self.inner, Pointer):
             writer.space()
         writer.write("*")
 
@@ -57,8 +57,7 @@ class Array:
     def write_declaration(self, identifier, writer):
         self.inner.write(writer)
         writer.space()
-        writer.write(identifier)
-        writer.write(f"[{self.length}]")
+        writer.write(f"{identifier}[{self.length}]")
 
     def __eq__(self, other):
         return isinstance(other, Array) and self.inner == other.inner
@@ -118,10 +117,9 @@ class Struct:
         writer.write(self.name)
         writer.space()
         with writer.braces():
-            for ty, identifier in self.fields:
-                with writer.line():
-                    ty.write_declaration(identifier, writer)
-                    writer.write(";")
+            for (ty, identifier), line_writer in zip(self.fields, writer.lines()):
+                ty.write_declaration(identifier, line_writer)
+                line_writer.write(";")
         writer.write(";")
 
 
@@ -230,9 +228,9 @@ class Block:
 
     def write(self, writer):
         with writer.braces():
+            line_writer = writer.lines()
             for statement in self.statements:
-                with writer.line():
-                    statement.write(writer)
+                statement.write(next(line_writer))
 
 @contextmanager
 def block_context(function, block):
@@ -450,15 +448,13 @@ def write_items(items, writer):
     for item in items:
         if isinstance(item, Include):
             item.write(writer)
+    line_writer = writer.lines()
     for item in items:
         if isinstance(item, Struct):
-            with writer.line():
-                item.writer_definition(writer)
+            item.writer_definition(next(line_writer))
     for item in items:
         if isinstance(item, Function):
-            with writer.line():
-                item.write_declaration(writer)
+            item.write_declaration(next(line_writer))
     for item in items:
         if isinstance(item, Function):
-            with writer.line():
-                item.write_definition(writer)
+            item.write_definition(next(line_writer))
