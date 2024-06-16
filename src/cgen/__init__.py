@@ -357,7 +357,9 @@ class Call:
 
 class Op:
     def __init__(self, op, left, right):
-        # TODO: check left/right types
+        if op in ["+", "-", "*", "/", "%"]:
+            assert left.ty == right.ty
+        # TODO: other type checks
         self.op = op
         self.left = left
         self.right = right
@@ -370,6 +372,8 @@ class Op:
     def ty(self):
         if self.op == "sizeof":
             return USIZE
+        if self.op == "&" and not self.left:
+            return Pointer(self.right.ty)
         if self.op in ("==", "!=", ">", ">=", "<", "<="):
             return INT
         return self.left.ty # TODO
@@ -380,16 +384,19 @@ class Op:
                 self.left.write(writer)
             writer.space()
         writer.write(self.op)
-        writer.space()
+        if self.left:
+            writer.space()
         with writer.parentheses():
             self.right.write(writer)
 
-class Index:
+class GetItem:
     def __init__(self, array, position):
         array_type = array.ty
-        if array.ty:
+        if array_type:
             assert isinstance(array_type, (Array, Pointer))
-            # TODO: assert position type
+        position_type = position.ty
+        if position_type:
+            assert position_type == USIZE
         self.array = array
         self.position = position
 
@@ -401,6 +408,32 @@ class Index:
         self.array.write(writer)
         with writer.brackets():
             self.position.write(writer)
+
+class SetItem:
+    def __init__(self, array, position, source):
+        array_type = array.ty
+        if array_type:
+            assert isinstance(array_type, (Array, Pointer))
+            source_type = source.ty
+            if source_type:
+                assert source_type == array_type.inner
+        position_type = position.ty
+        if position_type:
+            assert position_type == USIZE
+        self.array = array
+        self.position = position
+        self.source = source
+
+    def write(self, writer):
+        self.array.write(writer)
+        with writer.brackets():
+            self.position.write(writer)
+        writer.space()
+        writer.write("=")
+        writer.space()
+        self.source.write(writer)
+        writer.write(";")
+        
 
 class GetAttr:
     def __init__(self, struct, attr):

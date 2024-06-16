@@ -13,8 +13,10 @@ from cgen import (
     Pointer,
     Run,
     SetAttr,
+    SetItem,
     Struct,
     Variable,
+    Assign
 )
 
 
@@ -25,6 +27,7 @@ class Vec:
         self.new = self.gen_new()
         self.drop = self.gen_drop()
         self.reserve = self.gen_reserve()
+        self.push = self.gen_push()
 
     def gen_new(self):
         f = Function("vec_new")
@@ -59,6 +62,22 @@ class Vec:
             f.add(Run(Call(assert_func, [Op("!=", GetAttr(v, "buf"), Null(self.inner_type))])))
             f.add(SetAttr(v, "cap", cap))
         return f
+    
+    def gen_push(self):
+        f = Function("vec_push")
+        v = f.add_parameter(Pointer(self.struct), "v")
+        element = f.add_parameter(self.inner_type, "element")
+        with f.if_else(Op("==", GetAttr(v, "len"), GetAttr(v, "cap")))[0]:
+            cap = f.declare(USIZE, "cap")
+            pos, neg = f.if_else(Op("==", GetAttr(v, "cap"), Int(0)))
+            with pos:
+                f.add(Assign(cap, Int(8, USIZE)))
+            with neg:
+                f.add(Assign(cap, Op("<<", GetAttr(v, "cap"), Int(1))))
+            f.add(Run(Call(self.reserve, [v, cap])))
+        f.add(SetItem(GetAttr(v, "buf"), GetAttr(v, "len"), element))
+        f.add(SetAttr(v, "len", Op("+", GetAttr(v, "len"), Int(1, USIZE))))
+        return f
 
     def items(self):
         yield Include("stdlib.h")
@@ -67,6 +86,7 @@ class Vec:
         yield self.new
         yield self.drop
         yield self.reserve
+        yield self.push
 
 def gen_struct(inner_type):
     s = Struct("Vec")
