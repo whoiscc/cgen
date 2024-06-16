@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 from contextlib import contextmanager
 
+from cgen.parse import parse, parse_type
 from cgen.writer import string
 
 
@@ -201,23 +202,27 @@ class Function:
         self.active_block.statements.append(Declare(variable))
         return variable
 
-    def add(self, statement):
+    def add(self, *statement_tokens):
+        statement = parse(tuple(statement_tokens))
+        if not isinstance(statement, (Assign, SetAttr, SetItem)):
+            statement = Run(statement)
         self.active_block.statements.append(statement)
 
-    def if_else(self, condition):
-        statement = IfElse(condition)
+    def if_else(self, *condition_tokens):
+        statement = IfElse(parse(tuple(condition_tokens)))
         self.active_block.statements.append(statement)
         return (block_context(self, statement.positive), block_context(self, statement.negative))
 
-    def when(self, condition):
-        return self.if_else(condition)[0]
+    def when(self, *condition_tokens):
+        return self.if_else(*condition_tokens)[0]
 
-    def loop(self, condition):
-        statement = While(condition)
+    def loop(self, *condition_tokens):
+        statement = While(parse(tuple(condition_tokens)))
         self.active_block.statements.append(statement)
         return block_context(self, statement.body)
 
-    def ret(self, inner):
+    def ret(self, *tokens):
+        inner = parse(tuple(tokens))
         assert inner.ty == self.return_type
         self.active_block.statements.append(Return(inner))
 
@@ -265,7 +270,7 @@ def block_context(function, block):
 
 class Variable:
     def __init__(self, ty, name):
-        self.ty = ty
+        self.ty = parse_type(ty)
         self.name = name
 
     @classmethod

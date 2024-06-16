@@ -2,19 +2,11 @@ from cgen import (
     INT,
     UNIT,
     USIZE,
-    Assign,
-    Call,
     Function,
-    FunctionType,
-    GetAttr,
     Include,
     Int,
     Null,
-    Op,
     Pointer,
-    Run,
-    SetAttr,
-    SetItem,
     Struct,
     Variable,
 )
@@ -41,52 +33,50 @@ class Vec:
         f = Function("vec_new")
         f.return_type = self.struct
         v = f.declare(self.struct, "v")
-        f.add(SetAttr(v, "buf", Null(self.inner_type)))
-        f.add(SetAttr(v, "len", Int(0, USIZE)))
-        f.add(SetAttr(v, "cap", Int(0, USIZE)))
+        f.add(v, ".buf", "=", Null(self.inner_type))
+        f.add(v, ".len", "=", Int(0, USIZE))
+        f.add(v, ".cap", "=", Int(0, USIZE))
         f.ret(v)
         return f
 
     def gen_drop(self):
         f = Function("vec_drop")
         v = f.add_parameter(self.struct, "v")
-        with f.when(Op("!=", GetAttr(v, "cap"), Int(0, USIZE))):
-            free = Variable(FunctionType(UNIT, [Pointer(self.inner_type)]), "free")
-            f.add(Run(Call(free, [GetAttr(v, "buf")])))
+        with f.when((v, ".cap"), "!=", Int(0, USIZE)):
+            free = Variable(([("*", self.inner_type)], "->", UNIT), "free")
+            f.add(free, [(v, ".buf")])
             # not necessary if guarantee no double drop
-            f.add(SetAttr(v, "len", Int(0, USIZE)))
-            f.add(SetAttr(v, "cap", Int(0, USIZE)))
+            f.add(v, ".len", "=", Int(0, USIZE))
+            f.add(v, ".cap", "=", Int(0, USIZE))
         return f
 
     def gen_reserve(self):
         f = Function("vec_reserve")
-        v = f.add_parameter(Pointer(self.struct), "v")
+        v = f.add_parameter(("*", self.struct), "v")
         cap = f.add_parameter(USIZE, "cap")
-        # not silently fail the opposite?
-        with f.when(Op(">", cap, GetAttr(v, "cap"))):
-            realloc = Variable(FunctionType(Pointer(self.inner_type), [Pointer(self.inner_type), USIZE]), "realloc")
-            f.add(
-                SetAttr(v, "buf", Call(realloc, [GetAttr(v, "buf"), Op("*", Op.unary("sizeof", self.inner_type), cap)]))
-            )
-            assert_func = Variable(FunctionType(UNIT, [INT]), "assert")
-            f.add(Run(Call(assert_func, [Op("!=", GetAttr(v, "buf"), Null(self.inner_type))])))
-            f.add(SetAttr(v, "cap", cap))
+        # consider not silently fail the opposite?
+        with f.when(cap, ">", (v, ".cap")):
+            realloc = Variable(([("*", self.inner_type), USIZE], "->", ("*", self.inner_type)), "realloc")
+            f.add(v, ".buf", "=", (realloc, [(v, ".buf"), (("sizeof", self.inner_type), "*", cap)]))
+            assert_func = Variable(([INT], "->", UNIT), "assert")
+            f.add(assert_func, [((v, ".buf"), "!=", Null(self.inner_type))])
+            f.add(v, ".cap", "=", cap)
         return f
 
     def gen_push(self):
         f = Function("vec_push")
-        v = f.add_parameter(Pointer(self.struct), "v")
+        v = f.add_parameter(("*", self.struct), "v")
         element = f.add_parameter(self.inner_type, "element")
-        with f.when(Op("==", GetAttr(v, "len"), GetAttr(v, "cap"))):
+        with f.when((v, ".len"), "==", (v, ".cap")):
             cap = f.declare(USIZE, "cap")
-            pos, neg = f.if_else(Op("==", GetAttr(v, "cap"), Int(0)))
+            pos, neg = f.if_else((v, ".cap"), "==", Int(0, USIZE))
             with pos:
-                f.add(Assign(cap, Int(8, USIZE)))
+                f.add(cap, "=", Int(8, USIZE))
             with neg:
-                f.add(Assign(cap, Op("<<", GetAttr(v, "cap"), Int(1))))
-            f.add(Run(Call(self.reserve, [v, cap])))
-        f.add(SetItem(GetAttr(v, "buf"), GetAttr(v, "len"), element))
-        f.add(SetAttr(v, "len", Op("+", GetAttr(v, "len"), Int(1, USIZE))))
+                f.add(cap, "=", ((v, ".cap"), "*", Int(2, USIZE)))
+            f.add(self.reserve, [v, cap])
+        f.add((v, ".buf"), "[]", (v, ".len"), "=", element)
+        f.add(v, ".len", "=", ((v, ".len"), "+", Int(1, USIZE)))
         return f
 
     def items(self):
