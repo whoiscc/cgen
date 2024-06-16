@@ -26,9 +26,16 @@ class Primitive:
 
 
 UNIT = Primitive("void")
-INT = Primitive("int")
-CHAR = Primitive("char")
+I32 = Primitive("int32_t")
+U8 = Primitive("uint8_t")
+U32 = Primitive("uint32_t")
+U64 = Primitive("uint64_t")
 USIZE = Primitive("size_t")
+
+# these are part of the language so has to be here
+# do not use them; use what Rust has
+INT = Primitive("int")  # for comparison result type
+CHAR = Primitive("char")  # for string literal type
 
 
 class Pointer:
@@ -150,10 +157,10 @@ class Struct:
 
 
 class Int:
-    def __init__(self, value, ty=INT):
+    def __init__(self, value, ty=I32):
         assert isinstance(value, int)
         self.value = value
-        assert ty in (INT, USIZE)
+        assert ty in (INT, I32, U8, U32, U64, USIZE)  #
         self.ty = ty
 
     def write(self, writer):
@@ -536,6 +543,19 @@ class SetAttr:
         writer.space()
         self.source.write(writer)
         writer.write(";")
+
+
+class Cast:
+    def __init__(self, ty, inner):
+        # TODO: check cast validity
+        self.ty = ty
+        self.inner = inner
+
+    def write(self, writer):
+        with writer.parentheses():
+            self.ty.write(writer)
+        writer.space()
+        self.inner.write(writer)
 
 
 class Include:

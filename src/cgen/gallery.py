@@ -1,21 +1,21 @@
-from cgen import INT, Function, Int
+from cgen import I32, Function
 
 
 def fib():
     f = Function("fib")
-    f.return_type = INT
-    n = f.add_parameter(INT, "n")
-    a = f.declare(INT, "a")
-    b = f.declare(INT, "b")
-    m = f.declare(INT, "m")
-    f.add(a, "=", Int(1))
-    f.add(b, "=", Int(1))
-    f.add(m, "=", Int(2))
+    f.return_type = I32
+    n = f.add_parameter(I32, "n")
+    a = f.declare(I32, "a")
+    b = f.declare(I32, "b")
+    m = f.declare(I32, "m")
+    f.add(a, "=", I32(1))
+    f.add(b, "=", I32(1))
+    f.add(m, "=", I32(2))
     with f.loop(m, "<", n):
-        t = f.declare(INT, "t")
+        t = f.declare(I32, "t")
         f.add(t, "=", a)
         f.add(a, "=", (a, "+", b))
         f.add(b, "=", t)
-        f.add(m, "=", (m, "+", Int(1)))
+        f.add(m, "=", (m, "+", I32(1)))
     f.ret(a)
     return f

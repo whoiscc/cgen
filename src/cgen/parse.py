@@ -1,5 +1,5 @@
 def parse(tokens):
-    from cgen import Assign, Call, GetAttr, GetItem, Op, SetAttr, SetItem
+    from cgen import Assign, Call, Cast, GetAttr, GetItem, Op, SetAttr, SetItem
 
     if not isinstance(tokens, tuple):
         return tokens
@@ -29,6 +29,8 @@ def parse(tokens):
             right,
         ):
             return Op(op, parse(left), parse(right))
+        case inner, "as", ty:
+            return Cast(parse_type(ty), parse(inner))
         case "&" | "sizeof" | "~" | "!" as op, right:
             return Op.unary(op, parse(right))
         case callee, list([*arguments]):

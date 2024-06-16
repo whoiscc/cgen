@@ -3,16 +3,16 @@ from cgen.gallery import fib
 from cgen.writer import generate
 
 fib_source = """\
-int fib(int);
-int fib(int n) {
-  int a;
-  int b;
-  int m;
+int32_t fib(int32_t);
+int32_t fib(int32_t n) {
+  int32_t a;
+  int32_t b;
+  int32_t m;
   a = 1;
   b = 1;
   m = 2;
   while ((m) < (n)) {
-    int t;
+    int32_t t;
     t = a;
     a = (a) + (b);
     b = t;

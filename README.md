@@ -94,6 +94,13 @@ Run the demo above with
 hatch run python3 -m cgen
 ```
 
+Compile and run the generated code
+
+```console
+hatch run python3 -m cgen | cc -x c -
+./a.out
+```
+
 ## License
 
 `cgen` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.
