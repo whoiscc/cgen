@@ -229,6 +229,8 @@ class Block:
     def write(self, writer):
         with writer.braces():
             line_writer = writer.lines()
+            if not self.statements:
+                writer.write(";")
             for statement in self.statements:
                 statement.write(next(line_writer))
 
@@ -310,6 +312,7 @@ class IfElse:
             self.condition.write(writer)
         writer.space()
         self.positive.write(writer)
+        writer.space()
         writer.write("else")
         writer.space()
         self.negative.write(writer)
@@ -465,8 +468,8 @@ class SourceCode:
                 self.structs.append(item)
             case Function():
                 self.functions.append(item)
-            case _:
-                for item in item.items():
+            case compound_item:
+                for item in compound_item.items():
                     self.add(item)
 
     def write(self, writer):
