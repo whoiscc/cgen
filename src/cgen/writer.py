@@ -59,8 +59,6 @@ def wrap(writer, left, right, inline):
         if not inline:
             writer.indent_level -= 2
         writer.write(right)
-        if not inline:
-            writer.line_break()
 
 def delimited(writer, delimiter):
     prefix = ""

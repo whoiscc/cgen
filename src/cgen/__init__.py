@@ -23,34 +23,7 @@ class Primitive:
 UNIT = Primitive("void")
 INT = Primitive("int")
 CHAR = Primitive("char")
-
-class Int:
-    def __init__(self, value):
-        assert isinstance(value, int)
-        self.value = value
-
-    @property
-    def ty(self):
-        return INT
-
-    def write(self, writer):
-        writer.write(str(self.value))
-
-class String:
-    def __init__(self, value):
-        assert isinstance(value, str)
-        self.value = value
-
-    @property
-    def ty(self):
-        return Pointer(CHAR)
-
-    def write(self, writer):
-        writer.write("(char[])")
-        with writer.braces(inline=True):
-            comma_writer = writer.comma_delimited()
-            for c in self.value:
-                next(comma_writer).write(repr(c))
+USIZE = Primitive("size_t")
 
 class Pointer:
     def __init__(self, inner):
@@ -121,6 +94,74 @@ class FunctionType:
     def __hash__(self):
         return hash((self.parameter_types, "->", self.return_type))
 
+class Struct:
+    def __init__(self, name):
+        self.name = name
+        self.fields = []
+
+    def add_field(self, ty, identifier):
+        self.fields.append((ty, identifier))
+
+    def write_declaration(self, identifier, writer):
+        self.write(writer)
+        writer.space()
+        writer.write(identifier)
+
+    def write(self, writer):
+        writer.write("struct")
+        writer.space()
+        writer.write(self.name)
+
+    def writer_definition(self, writer):
+        writer.write("struct")
+        writer.space()
+        writer.write(self.name)
+        writer.space()
+        with writer.braces():
+            for ty, identifier in self.fields:
+                with writer.line():
+                    ty.write_declaration(identifier, writer)
+                    writer.write(";")
+        writer.write(";")
+
+
+class Int:
+    def __init__(self, value, ty = INT):
+        assert isinstance(value, int)
+        self.value = value
+        assert ty in (INT, USIZE)
+        self.ty = ty
+
+    def write(self, writer):
+        writer.write(str(self.value))
+
+class String:
+    def __init__(self, value):
+        assert isinstance(value, str)
+        self.value = value
+
+    @property
+    def ty(self):
+        return Pointer(CHAR)
+
+    def write(self, writer):
+        writer.write("(char[])")
+        with writer.braces(inline=True):
+            comma_writer = writer.comma_delimited()
+            for c in self.value:
+                next(comma_writer).write(repr(c))
+
+class Null:
+    def __init__(self, inner_type):
+        self.inner_type = inner_type
+
+    @property
+    def ty(self):
+        return Pointer(self.inner_type)
+
+    def write(self, writer):
+        writer.write("NULL")
+
 class Function:
     def __init__(self, name):
         self.name = name
@@ -148,11 +189,8 @@ class Function:
         self.active_block.statements.append(Declare(variable))
         return variable
 
-    def assign(self, place, source):
-        self.active_block.statements.append(Assign(place, source))
-
-    def run(self, inner):
-        self.active_block.statements.append(Run(inner))
+    def add(self, statement):
+        self.active_block.statements.append(statement)
 
     def if_else(self, condition):
         statement = IfElse(condition)
@@ -313,6 +351,33 @@ class Call:
             for argument in self.arguments:
                 argument.write(next(comma_writer))
 
+class Op:
+    def __init__(self, op, left, right):
+        # TODO: check left/right types
+        self.op = op
+        self.left = left
+        self.right = right
+
+    @classmethod
+    def unary(cls, op, right):
+        return cls(op, None, right)
+
+    @property
+    def ty(self):
+        if self.op == "sizeof":
+            return USIZE
+        return INT # TODO
+
+    def write(self, writer):
+        if self.left:
+            with writer.parentheses():
+                self.left.write(writer)
+            writer.space()
+        writer.write(self.op)
+        writer.space()
+        with writer.parentheses():
+            self.right.write(writer)
+
 class Index:
     def __init__(self, array, position):
         array_type = array.ty
@@ -331,43 +396,69 @@ class Index:
         with writer.brackets():
             self.position.write(writer)
 
-class Op:
-    def __init__(self, op, left, right):
-        # TODO: check left/right types
-        self.op = op
-        self.left = left
-        self.right = right
-
-    @property
-    def ty(self):
-        return INT # TODO
+class GetAttr:
+    def __init__(self, struct, attr):
+        self.ty = None
+        struct_type = struct.ty
+        if struct_type:
+            assert isinstance(struct_type, Struct)
+            for ty, name in struct_type.fields:
+                if name == attr:
+                    self.ty = ty
+            assert self.ty
+        self.struct = struct
+        self.attr = attr
 
     def write(self, writer):
-        if self.left:
-            with writer.parentheses():
-                self.left.write(writer)
-            writer.space()
-        writer.write(self.op)
+        self.struct.write(writer)
+        writer.write(f".{self.attr}")
+
+
+class SetAttr:
+    def __init__(self, struct, attr, source):
+        struct_type = struct.ty
+        if struct_type:
+            assert isinstance(struct_type, Struct)
+            field_type = next(ty for ty, name in struct_type.fields if name == attr)
+            assert source.ty == field_type
+        self.struct = struct
+        self.attr = attr
+        self.source = source
+
+    def write(self, writer):
+        self.struct.write(writer)
+        writer.write(f".{self.attr}")
         writer.space()
-        with writer.parentheses():
-            self.right.write(writer)
+        writer.write("=")
+        writer.space()
+        self.source.write(writer)
+        writer.write(";")
 
-class IncludeSystem:
-    def __init__(self, name):
+class Include:
+    def __init__(self, name, *, system=True):
         self.name = name
+        self.system = system
 
     def write(self, writer):
-        writer.write(f"#include <{self.name}>")
+        if self.system:
+            writer.write(f"#include <{self.name}>")
+        else:
+            writer.write(f'#include "{self.name}"')
         writer.line_break()
 
 def write_items(items, writer):
     for item in items:
-        if isinstance(item, IncludeSystem):
+        if isinstance(item, Include):
             item.write(writer)
+    for item in items:
+        if isinstance(item, Struct):
+            with writer.line():
+                item.writer_definition(writer)
     for item in items:
         if isinstance(item, Function):
             with writer.line():
                 item.write_declaration(writer)
     for item in items:
         if isinstance(item, Function):
-            item.write_definition(writer)
+            with writer.line():
+                item.write_definition(writer)
