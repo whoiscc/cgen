@@ -1,9 +1,15 @@
 from contextlib import contextmanager
 
 
-def string(item):
+def generate(item):
     w = Writer()
     item.write(w)
+    return w.buf
+
+
+def mangled(item):
+    w = Writer()
+    item.write_mangled(w)
     return w.buf
 
 

@@ -10,6 +10,7 @@ from cgen import (
     Struct,
     Variable,
 )
+from cgen.writer import mangled
 
 
 def gen_struct(inner_type):
@@ -30,7 +31,7 @@ class Vec:
         self.push = self.gen_push()
 
     def gen_new(self):
-        f = Function("vec_new")
+        f = Function(f"vec_new_{mangled(self.inner_type)}")
         f.return_type = self.struct
         v = f.declare(self.struct, "v")
         f.add(v, ".buf", "=", Null(self.inner_type))
@@ -40,7 +41,7 @@ class Vec:
         return f
 
     def gen_drop(self):
-        f = Function("vec_drop")
+        f = Function(f"vec_drop_{mangled(self.inner_type)}")
         v = f.add_parameter(self.struct, "v")
         with f.when((v, ".cap"), "!=", Int(0, USIZE)):
             free = Variable(([("*", self.inner_type)], "->", UNIT), "free")
@@ -51,7 +52,7 @@ class Vec:
         return f
 
     def gen_reserve(self):
-        f = Function("vec_reserve")
+        f = Function(f"vec_reserve_{mangled(self.inner_type)}")
         v = f.add_parameter(("*", self.struct), "v")
         cap = f.add_parameter(USIZE, "cap")
         # consider not silently fail the opposite?
@@ -64,7 +65,7 @@ class Vec:
         return f
 
     def gen_push(self):
-        f = Function("vec_push")
+        f = Function(f"vec_push_{mangled(self.inner_type)}")
         v = f.add_parameter(("*", self.struct), "v")
         element = f.add_parameter(self.inner_type, "element")
         with f.when((v, ".len"), "==", (v, ".cap")):

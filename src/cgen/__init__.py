@@ -4,7 +4,7 @@
 from contextlib import contextmanager
 
 from cgen.parse import parse, parse_type
-from cgen.writer import string
+from cgen.writer import generate
 
 
 class Primitive:
@@ -19,7 +19,10 @@ class Primitive:
         writer.space()
         writer.write(identifier)
 
-    # consider override __eq__ by comparing name
+    def write_mangled(self, writer):
+        self.write(writer)
+
+    # consider override __eq__ by comparing name?
 
 
 UNIT = Primitive("void")
@@ -42,6 +45,10 @@ class Pointer:
         self.write(writer)
         writer.write(identifier)
 
+    def write_mangled(self, writer):
+        writer.write("ptr_")
+        self.inner.write_mangled(writer)
+
     def __eq__(self, other):
         return isinstance(other, Pointer) and self.inner == other.inner
 
@@ -62,6 +69,10 @@ class Array:
         self.inner.write(writer)
         writer.space()
         writer.write(f"{identifier}[{self.length}]")
+
+    def write_mangled(self, writer):
+        writer.write(f"array{self.length}_")
+        self.inner.write_mangled(writer)
 
     def __eq__(self, other):
         return isinstance(other, Array) and self.inner == other.inner
@@ -92,6 +103,9 @@ class FunctionType:
             for ty in self.parameter_types:
                 ty.write(next(comma_writer))
 
+    def writer_mangled(self, writer):
+        raise NotImplementedError  # will need to think about it...
+
     def __eq__(self, other):
         return isinstance(other, FunctionType) and (self.return_type, self.parameter_types) == (
             other.return_type,
@@ -119,6 +133,9 @@ class Struct:
         writer.write("struct")
         writer.space()
         writer.write(self.name)
+
+    def write_mangled(self, writer):
+        writer.write(f"struct_{self.name}")
 
     def writer_definition(self, writer):
         writer.write("struct")
@@ -296,7 +313,7 @@ class Declare:
 class Assign:
     def __init__(self, place, source):
         if source.ty:
-            assert place.ty == source.ty, f"assign {string(place.ty)} with {string(source.ty)}"
+            assert place.ty == source.ty, f"assign {generate(place.ty)} with {generate(source.ty)}"
         self.place = place
         self.source = source
 

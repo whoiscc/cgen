@@ -11,7 +11,7 @@ from cgen import (
     Variable,
 )
 from cgen.vec import Vec
-from cgen.writer import string
+from cgen.writer import generate
 
 vec = Vec(INT)
 
@@ -22,10 +22,10 @@ f = Function("main")
 f.return_type = INT
 argc = f.add_parameter(INT, "argc")
 argv = f.add_parameter(("*", ("*", CHAR)), "argv")
-v = f.declare(vec.struct, "v")
-f.add(v, "=", (vec.new, []))
 n = f.declare(INT, "n")
 f.add(n, "=", (atoi, [(argv, "[]", Int(1, USIZE))]))
+v = f.declare(vec.struct, "v")
+f.add(v, "=", (vec.new, []))
 m = f.declare(INT, "m")
 f.add(m, "=", Int(0))
 with f.loop(m, "<", n):
@@ -39,4 +39,4 @@ source.add(Include("stdio.h"))
 source.add(Include("stdlib.h"))
 source.add(vec)
 source.add(f)
-print(string(source))
+print(generate(source))
