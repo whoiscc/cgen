@@ -209,6 +209,9 @@ class Function:
         self.active_block.statements.append(statement)
         return (block_context(self, statement.positive), block_context(self, statement.negative))
 
+    def when(self, condition):
+        return self.if_else(condition)[0]
+
     def loop(self, condition):
         statement = While(condition)
         self.active_block.statements.append(statement)

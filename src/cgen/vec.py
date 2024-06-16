@@ -20,6 +20,14 @@ from cgen import (
 )
 
 
+def gen_struct(inner_type):
+    s = Struct("Vec")
+    s.add_field(Pointer(inner_type), "buf")
+    s.add_field(USIZE, "len")
+    s.add_field(USIZE, "cap")
+    return s
+
+
 class Vec:
     def __init__(self, inner_type):
         self.inner_type = inner_type
@@ -42,7 +50,7 @@ class Vec:
     def gen_drop(self):
         f = Function("vec_drop")
         v = f.add_parameter(self.struct, "v")
-        with f.if_else(Op("!=", GetAttr(v, "cap"), Int(0, USIZE)))[0]:
+        with f.when(Op("!=", GetAttr(v, "cap"), Int(0, USIZE))):
             free = Variable(FunctionType(UNIT, [Pointer(self.inner_type)]), "free")
             f.add(Run(Call(free, [GetAttr(v, "buf")])))
             # not necessary if guarantee no double drop
@@ -55,7 +63,7 @@ class Vec:
         v = f.add_parameter(Pointer(self.struct), "v")
         cap = f.add_parameter(USIZE, "cap")
         # not silently fail the opposite?
-        with f.if_else(Op(">", cap, GetAttr(v, "cap")))[0]:
+        with f.when(Op(">", cap, GetAttr(v, "cap"))):
             realloc = Variable(FunctionType(Pointer(self.inner_type), [Pointer(self.inner_type), USIZE]), "realloc")
             f.add(
                 SetAttr(v, "buf", Call(realloc, [GetAttr(v, "buf"), Op("*", Op.unary("sizeof", self.inner_type), cap)]))
@@ -69,7 +77,7 @@ class Vec:
         f = Function("vec_push")
         v = f.add_parameter(Pointer(self.struct), "v")
         element = f.add_parameter(self.inner_type, "element")
-        with f.if_else(Op("==", GetAttr(v, "len"), GetAttr(v, "cap")))[0]:
+        with f.when(Op("==", GetAttr(v, "len"), GetAttr(v, "cap"))):
             cap = f.declare(USIZE, "cap")
             pos, neg = f.if_else(Op("==", GetAttr(v, "cap"), Int(0)))
             with pos:
@@ -89,11 +97,3 @@ class Vec:
         yield self.drop
         yield self.reserve
         yield self.push
-
-
-def gen_struct(inner_type):
-    s = Struct("Vec")
-    s.add_field(Pointer(inner_type), "buf")
-    s.add_field(USIZE, "len")
-    s.add_field(USIZE, "cap")
-    return s
