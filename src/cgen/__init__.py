@@ -444,17 +444,38 @@ class Include:
             writer.write(f'#include "{self.name}"')
         writer.line_break()
 
-def write_items(items, writer):
-    for item in items:
-        if isinstance(item, Include):
+    def __eq__(self, other):
+        return isinstance(other, Include) and (other.name, other.system) == (self.name, self.system)
+
+    def __hash__(self):
+        return hash((self.name, self.system))
+
+
+class SourceCode:
+    def __init__(self):
+        self.includes = set()
+        self.structs = []
+        self.functions = []
+
+    def add(self, item):
+        match item:
+            case Include():
+                self.includes.add(item)
+            case Struct():
+                self.structs.append(item)
+            case Function():
+                self.functions.append(item)
+            case _:
+                for item in item.items():
+                    self.add(item)
+
+    def write(self, writer):
+        for item in self.includes:
             item.write(writer)
-    line_writer = writer.lines()
-    for item in items:
-        if isinstance(item, Struct):
+        line_writer = writer.lines()
+        for item in self.structs:
             item.writer_definition(next(line_writer))
-    for item in items:
-        if isinstance(item, Function):
+        for item in self.functions:
             item.write_declaration(next(line_writer))
-    for item in items:
-        if isinstance(item, Function):
+        for item in self.functions:
             item.write_definition(next(line_writer))

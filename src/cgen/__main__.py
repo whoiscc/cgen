@@ -6,11 +6,11 @@ from cgen import (
     Include,
     Int,
     Pointer,
+    SourceCode,
     Variable,
-    write_items,
 )
 from cgen.vec import Vec
-from cgen.writer import Writer
+from cgen.writer import string
 
 vec = Vec(INT)
 
@@ -23,6 +23,8 @@ argc = f.add_parameter(INT, "argc")
 argv = f.add_parameter(Pointer(Pointer(CHAR)), "argv")
 f.ret(Int(0))
 
-w = Writer()
-write_items((Include("stdio.h"), Include("stdlib.h"), *list(vec.items()), f), w)
-print(w.buf)
+source = SourceCode()
+source.add(Include("stdio.h"))
+source.add(vec)
+source.add(f)
+print(string(source))

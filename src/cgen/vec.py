@@ -1,4 +1,4 @@
-from cgen import USIZE, Function, Int, Null, Pointer, SetAttr, Struct
+from cgen import USIZE, Function, Include, Int, Null, Pointer, SetAttr, Struct
 
 
 class Vec:
@@ -19,6 +19,7 @@ class Vec:
         return f
 
     def items(self):
+        yield Include("stdlib.h")
         yield self.struct
         yield self.new
 
