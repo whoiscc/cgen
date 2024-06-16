@@ -158,6 +158,9 @@ class Null:
         return Pointer(self.inner_type)
 
     def write(self, writer):
+        with writer.parentheses():
+            self.ty.write(writer)
+        writer.space()
         writer.write("NULL")
 
 class Function:
@@ -367,7 +370,9 @@ class Op:
     def ty(self):
         if self.op == "sizeof":
             return USIZE
-        return INT # TODO
+        if self.op in ("==", "!=", ">", ">=", "<", "<="):
+            return INT
+        return self.left.ty # TODO
 
     def write(self, writer):
         if self.left:
@@ -401,6 +406,11 @@ class GetAttr:
     def __init__(self, struct, attr):
         self.ty = None
         struct_type = struct.ty
+        if struct_type and isinstance(struct_type, Pointer):
+            self.arrow = True
+            struct_type = struct_type.inner
+        else:
+            self.arrow = False
         if struct_type:
             assert isinstance(struct_type, Struct)
             for ty, name in struct_type.fields:
@@ -412,12 +422,19 @@ class GetAttr:
 
     def write(self, writer):
         self.struct.write(writer)
-        writer.write(f".{self.attr}")
-
+        if self.arrow:
+            writer.write(f"->{self.attr}")
+        else:
+            writer.write(f".{self.attr}")
 
 class SetAttr:
     def __init__(self, struct, attr, source):
         struct_type = struct.ty
+        if struct_type and isinstance(struct_type, Pointer):
+            self.arrow = True
+            struct_type = struct_type.inner
+        else:
+            self.arrow = False
         if struct_type:
             assert isinstance(struct_type, Struct)
             field_type = next(ty for ty, name in struct_type.fields if name == attr)
@@ -428,7 +445,10 @@ class SetAttr:
 
     def write(self, writer):
         self.struct.write(writer)
-        writer.write(f".{self.attr}")
+        if self.arrow:
+            writer.write(f"->{self.attr}")
+        else:
+            writer.write(f".{self.attr}")
         writer.space()
         writer.write("=")
         writer.space()

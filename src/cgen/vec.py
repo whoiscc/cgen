@@ -1,5 +1,6 @@
 from cgen import (
     UNIT,
+    INT,
     USIZE,
     Call,
     Function,
@@ -23,12 +24,12 @@ class Vec:
         self.struct = gen_struct(self.inner_type)
         self.new = self.gen_new()
         self.drop = self.gen_drop()
+        self.reserve = self.gen_reserve()
 
     def gen_new(self):
         f = Function("vec_new")
         f.return_type = self.struct
         v = f.declare(self.struct, "v")
-        # malloc = Variable(FunctionType(Pointer(self.inner_type), [USIZE]), "malloc")
         f.add(SetAttr(v, "buf", Null(self.inner_type)))
         f.add(SetAttr(v, "len", Int(0, USIZE)))
         f.add(SetAttr(v, "cap", Int(0, USIZE)))
@@ -46,11 +47,26 @@ class Vec:
             f.add(SetAttr(v, "cap", Int(0, USIZE)))
         return f
 
+    def gen_reserve(self):
+        f = Function("vec_reserve")
+        v = f.add_parameter(Pointer(self.struct), "v")
+        cap = f.add_parameter(USIZE, "cap")
+        # not silently fail the opposite?
+        with f.if_else(Op(">", cap, GetAttr(v, "cap")))[0]:
+            realloc = Variable(FunctionType(Pointer(self.inner_type), [Pointer(self.inner_type), USIZE]), "realloc")
+            f.add(SetAttr(v, "buf", Call(realloc, [GetAttr(v, "buf"), Op("*", Op.unary("sizeof", self.inner_type), cap)])))
+            assert_func = Variable(FunctionType(UNIT, [INT]), "assert")
+            f.add(Run(Call(assert_func, [Op("!=", GetAttr(v, "buf"), Null(self.inner_type))])))
+            f.add(SetAttr(v, "cap", cap))
+        return f
+
     def items(self):
         yield Include("stdlib.h")
+        yield Include("assert.h")
         yield self.struct
         yield self.new
         yield self.drop
+        yield self.reserve
 
 def gen_struct(inner_type):
     s = Struct("Vec")
