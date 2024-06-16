@@ -82,14 +82,16 @@ int main(int argc, char **argv) {
 
 ## Installation
 
+Set up development with hatch
+
 ```console
-pip install cgen
+hatch env create
 ```
 
 Run the demo above with
 
 ```console
-python3 -m cgen
+hatch run python3 -m cgen
 ```
 
 ## License

@@ -1,4 +1,4 @@
-from cgen import INT, Function, Int, Op
+from cgen import INT, Function, Int
 
 
 def fib():
@@ -8,13 +8,14 @@ def fib():
     a = f.declare(INT, "a")
     b = f.declare(INT, "b")
     m = f.declare(INT, "m")
-    f.assign(a, Int(1))
-    f.assign(b, Int(1))
-    f.assign(m, Int(2))
-    with f.loop(Op("<", m, n)):
+    f.add(a, "=", Int(1))
+    f.add(b, "=", Int(1))
+    f.add(m, "=", Int(2))
+    with f.loop(m, "<", n):
         t = f.declare(INT, "t")
-        f.assign(t, a)
-        f.assign(a, Op("+", a, b))
-        f.assign(b, t)
-        f.assign(m, Op("+", m, Int(1)))
+        f.add(t, "=", a)
+        f.add(a, "=", (a, "+", b))
+        f.add(b, "=", t)
+        f.add(m, "=", (m, "+", Int(1)))
     f.ret(a)
+    return f
