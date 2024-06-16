@@ -14,7 +14,7 @@ from cgen.writer import mangled
 
 
 def gen_struct(inner_type):
-    s = Struct("Vec")
+    s = Struct(f"Vec_{mangled(inner_type)}")
     s.add_field(Pointer(inner_type), "buf")
     s.add_field(USIZE, "len")
     s.add_field(USIZE, "cap")
