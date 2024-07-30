@@ -17,11 +17,20 @@ Or <ins>C</ins> with <ins>gen</ins>eric programming, depends on your preference.
 
 ## Motivation
 
-The upside of C comparing to C++ is its easiness to reason about, while the downside is its lacking of features. Some of the missing features are able to be handcrafted e.g. emulating inheritance with dynamical sized struct (*flexible array members* in C11), manually rolling out virtual tables for dynamical dispatching, etc. Making such polyfills are (though tedious) still considered feasible. Generic programming, on the other hand, is mostly impractical without any help from compiler or external tools. The macro based generics will never be satisfying respecting productivity.
+CGen is a framework for projects demanding "C as human maintainable assembly".
 
-This project takes charge of the missing generic feature. With CGen you write Python code that generates C code. This extra layer of meta programming enables writing reusable C code with generic parameters as Python functions that can produce C code while generic C parameters become Python function parameters. And as the bonus you get the full power of Python as a constant evaluator. Whatever pre-computation you desired can be easily performed during/guiding the code generation.
+(Ok I know assembly is human maintainable compared to machine code but you probably get the point.)
 
-CGen is different from all prior projects (to my best knowledge). Instead of simple string level substitution, CGen is aware of syntax tree and sematic. For example, you are passing a Python `Variable` object into every of its use sites instead of its identifier string. The object encapsulation eliminates any necessity of manually maintaining consistency intra/inter code snippets. Furthermore, CGen strongly types its generated code. It performs type checks on all assignments, function calls and expressions, with potential ability to perform type inference for better usability. It's more like a full C frontend backward instead of a simple preprocessor.
+The C source code written for such demands does not require high level abstractions; to the opposite those features may be even intentionally avoided to keep the code faithfully reflecting hardware behaviors for e.g. reasoning about the performance characteristics, or just simply making it absolutely clear what's going on at the lowest level. 
+
+C already saves programmer from tedious mechanical tasks like register allocation and offset calculation, but it is short for one key feature that occasionally becomes the pain point: code generation/duplication. The low level nature of C renders more painful cases, including:
+* Loop unrolling
+* State machine with explicit `goto` control flow
+* Repeated processing logic for multiple data types i.e. generic programming
+
+The builtin mechanism for code generation/expansion in C i.e. macro is unsatisfying; an obvious fact that is needless to explain. People roll out code generation scripts as their own macro solutions, and Python has been a popular choice for writing such scripts. CGen then serves as a framework for writing scripts and a collection of generally useful scripts.
+
+CGen is different from all prior arts (to my best knowledge). Instead of simple string level substitution, CGen is aware of syntax tree and sematic. For example, you are passing a Python `Variable` object into every of its use sites instead of its identifier string. The object encapsulation eliminates any necessity of manually maintaining consistency intra/inter code snippets. Furthermore, CGen strongly types its generated code. It performs type checks on all assignments, function calls and expressions, with potential ability to perform type inference for better usability. It's more like a full C frontend backward instead of a simple preprocessor.
 
 ## Example
 
@@ -79,6 +88,44 @@ int main(int argc, char **argv) {
   vec_drop_int(v);
   return 0;
 }
+```
+
+Manually unrolling the runtime loop into a compile time loop
+```diff
+v = f.declare(vec.struct, "v")
+f.add(v, "=", (vec.new, []))
+# ...
+-m = f.declare(I32, "m")
+-f.add(m, "=", Int(0))
+-with f.loop(m, "<", n):
+-    f.add(vec.push, [("&", v), m])
+-    f.add(m, "=", (m, "+", Int(1)))
++for i in range(100):
++    m = Int(i, I32)
++    with f.when(m, "<", n):
++        f.add(vec.push, [("&", v), m])
+f.add(vec.drop, [v])
+f.ret(Int(0))
+```
+
+Generated
+```c
+  if ((0) < (n)) {
+    vec_push__int32_t(&(v), 0);
+  } else {
+    ;
+  }
+  if ((1) < (n)) {
+    vec_push__int32_t(&(v), 1);
+  } else {
+    ;
+  }
+  if ((2) < (n)) {
+    vec_push__int32_t(&(v), 2);
+  } else {
+    ;
+  }
+  // ...
 ```
 
 ## Installation

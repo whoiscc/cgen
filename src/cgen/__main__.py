@@ -27,11 +27,15 @@ n = f.declare(I32, "n")
 f.add(n, "=", ((atoi, [(argv, "[]", Int(1, USIZE))]), "as", I32))
 v = f.declare(vec.struct, "v")
 f.add(v, "=", (vec.new, []))
-m = f.declare(I32, "m")
-f.add(m, "=", Int(0))
-with f.loop(m, "<", n):
-    f.add(vec.push, [("&", v), m])
-    f.add(m, "=", (m, "+", Int(1)))
+# m = f.declare(I32, "m")
+# f.add(m, "=", Int(0))
+# with f.loop(m, "<", n):
+#     f.add(vec.push, [("&", v), m])
+#     f.add(m, "=", (m, "+", Int(1)))
+for i in range(100):
+    m = Int(i, I32)
+    with f.when(m, "<", n):
+        f.add(vec.push, [("&", v), m])
 f.add(vec.drop, [v])
 f.ret(Int(0, INT))
 
