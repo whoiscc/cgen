@@ -104,14 +104,16 @@ class FunctionType:
     def write_declaration(self, identifier, writer):
         self.return_type.write(writer)
         writer.space()
-        writer.write(identifier)
+        with writer.parentheses():
+            writer.write("*")
+            writer.write(identifier)
         with writer.parentheses():
             comma_writer = writer.comma_delimited()
             for ty in self.parameter_types:
                 ty.write(next(comma_writer))
 
     def writer_mangled(self, writer):
-        raise NotImplementedError  # will need to think about it...
+        raise NotImplementedError  # need to carefully think about this...
 
     def __eq__(self, other):
         return isinstance(other, FunctionType) and (self.return_type, self.parameter_types) == (
@@ -123,9 +125,20 @@ class FunctionType:
         return hash((self.parameter_types, "->", self.return_type))
 
 
+def mangled_name(writer, name, type_arguments):
+    writer.write(name)
+    if not type_arguments:
+        return
+    writer.write("_")
+    for _, argument in sorted(type_arguments.items()):
+        writer.write("_")
+        argument.write_mangled(writer)
+
+
 class Struct:
-    def __init__(self, name):
+    def __init__(self, name, **type_arguments):
         self.name = name
+        self.type_arguments = type_arguments
         self.fields = []
 
     def add_field(self, ty, identifier):
@@ -139,7 +152,7 @@ class Struct:
     def write(self, writer):
         writer.write("struct")
         writer.space()
-        writer.write(self.name)
+        mangled_name(writer, self.name, self.type_arguments)
 
     def write_mangled(self, writer):
         writer.write(f"struct_{self.name}")
@@ -147,7 +160,7 @@ class Struct:
     def writer_definition(self, writer):
         writer.write("struct")
         writer.space()
-        writer.write(self.name)
+        mangled_name(writer, self.name, self.type_arguments)
         writer.space()
         with writer.braces():
             for (ty, identifier), line_writer in zip(self.fields, writer.lines()):
@@ -200,8 +213,9 @@ class Null:
 
 
 class Function:
-    def __init__(self, name):
+    def __init__(self, name, **type_arguments):
         self.name = name
+        self.type_arguments = type_arguments
         self.parameters = []
         self.return_type = UNIT
         self.body = Block()
@@ -278,17 +292,30 @@ class Function:
         assert inner.ty == self.return_type
         self.active_block.statements.append(Return(inner))
 
-    def write_declaration(self, writer):
-        self.ty.write_declaration(self.name, writer)
+    # intentionally duplicate FunctionType.write_declaration
+    # the `writer_declaration` contract in this codebase promises to work with any identifier
+    # specified by caller, while the "forward declaration" has a fixed function name
+    # this is a forward declaration
+    #   int add(int, int);
+    # this is a declaration (potentially in global scope)
+    #   int (*assignable_add)(int, int);  // later may execute `assignable_add = add;`
+    def write_forward_declaration(self, writer):
+        self.return_type.write(writer)
+        writer.space()
+        self.write(writer)
+        with writer.parentheses():
+            comma_writer = writer.comma_delimited()
+            for variable in self.parameters:
+                variable.ty.write(next(comma_writer))
         writer.write(";")
 
     def write(self, writer):
-        writer.write(self.name)
+        mangled_name(writer, self.name, self.type_arguments)
 
     def write_definition(self, writer):
         self.return_type.write(writer)
         writer.space()
-        writer.write(self.name)
+        mangled_name(writer, self.name, self.type_arguments)
         with writer.parentheses():
             comma_writer = writer.comma_delimited()
             for variable in self.parameters:
@@ -640,6 +667,6 @@ class SourceCode:
         for item in self.structs:
             item.writer_definition(next(line_writer))
         for item in self.functions:
-            item.write_declaration(next(line_writer))
+            item.write_forward_declaration(next(line_writer))
         for item in self.functions:
             item.write_definition(next(line_writer))
